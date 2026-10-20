@@ -14,7 +14,10 @@ pub use sse::truncate_for_error;
 
 /// OpenAI-compatible vendors. OpenRouter, xAI and Ollama all speak this dialect.
 pub fn is_openai_compatible(kind: &str) -> bool {
-    matches!(kind, "openai" | "xai" | "openrouter" | "ollama")
+    matches!(
+        kind,
+        "openai" | "deepseek" | "xai" | "openrouter" | "ollama"
+    )
 }
 
 pub fn provider_label(kind: &str) -> String {

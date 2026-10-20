@@ -35,6 +35,7 @@ const providers = [
   { name: 'OpenAI', model: 'GPT-4.1 · o3' },
   { name: 'Claude', model: 'Sonnet · Opus' },
   { name: 'Gemini', model: '2.5 Pro · Flash' },
+  { name: 'DeepSeek', model: 'V3 · Reasoner' },
   { name: 'xAI', model: 'Grok 4' },
   { name: 'OpenRouter', model: '300+ models' },
   { name: 'Ollama', model: 'Local models' },
@@ -43,7 +44,7 @@ const providers = [
 const features = [
   {
     title: 'Bring your own key',
-    body: 'Six providers in one clean picker. Keys stay on your machine and are never sent to a BFish server.',
+    body: 'Seven providers in one clean picker. Model lists come live from each provider, and keys stay on your machine.',
     icon: 'key',
   },
   {
@@ -80,7 +81,7 @@ const steps = [
   },
   {
     title: 'Pick a model',
-    body: 'Add an API key for OpenAI, Claude, Gemini, xAI, or OpenRouter. Or point BFish at a local Ollama model.',
+    body: 'Add an API key for OpenAI, Claude, Gemini, DeepSeek, xAI, or OpenRouter. BFish detects which models your key can use. Or point it at a local Ollama model.',
   },
   {
     title: 'Ask for changes',
@@ -245,7 +246,7 @@ onMount(() => {
           <p>
             BFish ships a Rust MCP server forked from robloxstudio-mcp. Its tool schemas are explicit,
             its errors are actionable, and it works over stdio or streamable HTTP with Claude, GPT,
-            Gemini, Cursor, Codex, and local models.
+            Gemini, DeepSeek, Cursor, Codex, and local models.
           </p>
           <div class="mcp-actions">
             <button class="button light" onclick={() => navigate('docs')}>MCP documentation</button>

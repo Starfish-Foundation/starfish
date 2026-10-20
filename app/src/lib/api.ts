@@ -1,4 +1,11 @@
-export type ProviderId = 'openai' | 'anthropic' | 'gemini' | 'xai' | 'openrouter' | 'ollama';
+export type ProviderId =
+  | 'openai'
+  | 'anthropic'
+  | 'gemini'
+  | 'deepseek'
+  | 'xai'
+  | 'openrouter'
+  | 'ollama';
 
 export interface ProviderConfig {
   apiKey: string;

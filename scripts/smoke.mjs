@@ -184,6 +184,17 @@ function startMockProvider() {
     let body = '';
     for await (const chunk of request) body += chunk;
 
+    if (request.url?.endsWith('/models')) {
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          object: 'list',
+          data: [{ id: 'mock-chat' }, { id: 'mock-embedding' }],
+        }),
+      );
+      return;
+    }
+
     if (!request.url?.endsWith('/chat/completions')) {
       response.writeHead(404).end();
       return;
@@ -356,6 +367,16 @@ async function main() {
       body: JSON.stringify(currentSettings),
     });
     assert(savedSettings.ok, 'could not save mock provider settings');
+
+    const detected = await (
+      await fetch(`${BACKEND}/api/providers/models?provider=openai`)
+    ).json();
+    assert(
+      Array.isArray(detected.models) && detected.models.includes('mock-chat'),
+      'provider model detection failed',
+    );
+    assert(detected.count >= 1, 'provider model count missing');
+    console.log('✓ live model detection');
 
     const toolSession = (
       await (

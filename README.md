@@ -1,7 +1,7 @@
 # BFish
 
 **AI in Roblox Studio.** A local-first desktop AI engineer with a ChatGPT-style
-workspace, six model providers, and a Rust MCP server that can inspect and edit a
+workspace, seven model providers, and a Rust MCP server that can inspect and edit a
 live place.
 
 BFish is an independent open-source project. It is not affiliated with Roblox
@@ -26,7 +26,7 @@ Corporation.
 
 | Path | What it is |
 | --- | --- |
-| `crates/bfish-core` | Provider adapters (OpenAI, Claude, Gemini, xAI, OpenRouter, Ollama), prompts, session storage |
+| `crates/bfish-core` | Provider adapters (OpenAI, Claude, Gemini, DeepSeek, xAI, OpenRouter, Ollama), prompts, session storage |
 | `crates/bfish-mcp` | Rust MCP server, Studio bridge, 23 tools, connector installer |
 | `crates/bfish-backend` | Local API on `127.0.0.1:8765`, agent loop, SSE streaming |
 | `crates/bfish-app` | Tauri v2 desktop shell |
@@ -39,7 +39,8 @@ Corporation.
 
 ![BFish desktop app](assets/app.png)
 
-- **Six providers, one picker** — OpenAI, Claude, Gemini, xAI, OpenRouter, and Ollama.
+- **Seven providers, one picker** — OpenAI, Claude, Gemini, DeepSeek, xAI, OpenRouter, and Ollama.
+- **Live model detection** — asks each provider for its real model list and switches to a model your key can actually use.
 - **Real Studio tools** — explorer reads, Luau execution, scripts, instances, assets,
   selections, playtests, console output, undo/redo.
 - **Sessions** — saved local chats, rename/delete, auto titles, streaming responses.

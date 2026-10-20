@@ -76,7 +76,7 @@ async fn run_session(
     let settings = state.settings.read().await.clone();
     let Some(preset) = preset(&session.provider) else {
         anyhow::bail!(
-            "Unknown provider `{}`. Choose one of the six providers in Settings.",
+            "Unknown provider `{}`. Choose one of the available providers in Settings.",
             session.provider
         );
     };

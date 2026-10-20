@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import * as api from '../lib/api';
   import type { PromptPreset, ProviderPreset, Settings, StatusResponse } from '../lib/api';
 
@@ -28,9 +29,14 @@
   let selectedProvider = $state<string>(draft.provider);
   let showKey = $state(false);
   let testing = $state(false);
+  let detectRequest = 0;
   let testMessage = $state('');
   let testFailed = $state(false);
-  let models = $state<string[]>([]);
+  // svelte-ignore state_referenced_locally
+  let models = $state<string[]>(
+    presets.find((item) => item.id === draft.provider)?.models ?? [],
+  );
+  let modelsDetected = $state(false);
   let installing = $state(false);
   let installPath = $state('');
   let installFailed = $state(false);
@@ -57,35 +63,107 @@
   );
 
   const httpSnippet = $derived(`http://127.0.0.1:${draft.mcpPort}/mcp`);
+  const modelChoices = $derived(
+    modelsDetected ? models : [...new Set([...models, ...(preset?.models ?? [])])],
+  );
+
+  function isChatModelName(model: string): boolean {
+    const name = model.toLowerCase();
+    return ![
+      'embedding',
+      'embed-',
+      'tts',
+      'whisper',
+      'dall-e',
+      'moderation',
+      'audio',
+      'transcribe',
+      'rerank',
+      'realtime',
+      'image',
+    ].some((part) => name.includes(part));
+  }
+
+  function chooseModel(list: string[], provider: ProviderPreset): string {
+    const curated = provider.models.find((model) => list.includes(model));
+    if (curated) return curated;
+    return list.find(isChatModelName) ?? list[0];
+  }
 
   function selectProvider(id: string) {
     selectedProvider = id;
     showKey = false;
     testMessage = '';
     testFailed = false;
+    modelsDetected = false;
     models = presets.find((item) => item.id === id)?.models ?? [];
+    void detectModels(id, false);
   }
 
-  async function testConnection() {
+  /**
+   * Ask the provider for its actual model list. This is the source of truth;
+   * preset names are only a fallback when no key is available.
+   */
+  async function detectModels(providerId: string, manual: boolean) {
+    const requestId = ++detectRequest;
+    const providerPreset = presets.find((item) => item.id === providerId);
+    const config = draft.providers[providerId];
+    if (!providerPreset || !config) return;
+
+    if (providerPreset.requiresKey && !config.apiKey.trim()) {
+      if (manual) {
+        testFailed = false;
+        testMessage = `Add a ${providerPreset.label} API key to detect models.`;
+      }
+      models = providerPreset.models;
+      modelsDetected = false;
+      return;
+    }
+
     testing = true;
-    testMessage = '';
+    testMessage = manual ? 'Detecting models…' : '';
     testFailed = false;
     try {
       const result = await api.testProvider({
-        provider: selectedProvider,
-        apiKey: draft.providers[selectedProvider].apiKey,
-        baseUrl: draft.providers[selectedProvider].baseUrl,
-        model: draft.providers[selectedProvider].model,
+        provider: providerId,
+        apiKey: config.apiKey,
+        baseUrl: config.baseUrl,
+        model: config.model,
       });
+
+      if (requestId !== detectRequest || providerId !== selectedProvider) return;
+
+      if (result.models.length === 0) {
+        testFailed = true;
+        testMessage = `${providerPreset.label} returned no models.`;
+        modelsDetected = false;
+        models = providerPreset.models;
+        return;
+      }
+
       models = result.models;
-      testMessage = `Connected. ${result.models.length} models available.`;
+      modelsDetected = true;
+      if (!result.models.includes(config.model)) {
+        config.model = chooseModel(result.models, providerPreset);
+      }
+      testMessage = `Detected ${result.models.length} models from ${providerPreset.label}.`;
     } catch (error) {
+      if (requestId !== detectRequest || providerId !== selectedProvider) return;
       testFailed = true;
       testMessage = api.errorMessage(error);
+      modelsDetected = false;
     } finally {
-      testing = false;
+      if (requestId === detectRequest) testing = false;
     }
   }
+
+  async function testConnection() {
+    await detectModels(selectedProvider, true);
+  }
+
+  onMount(() => {
+    void detectModels(selectedProvider, false);
+  });
 
   async function install() {
     installing = true;
@@ -246,21 +324,29 @@
                   <div class="input-row">
                     <input bind:value={draft.providers[selectedProvider].model} list="bfish-models" spellcheck="false" />
                     <button class="ghost-button" onclick={testConnection} disabled={testing}>
-                      {testing ? 'Testing…' : 'Test'}
+                      {testing ? 'Detecting…' : 'Detect'}
                     </button>
                   </div>
-                  <small>Any model name the provider accepts. Use a tool-calling capable model.</small>
+                  <small>
+                    {modelsDetected
+                      ? 'Live model list from the provider API.'
+                      : 'Press Detect to load the models your key can actually use.'}
+                  </small>
                 </label>
 
                 <datalist id="bfish-models">
-                  {#each [...new Set([...models, ...preset.models])] as model}
+                  {#each modelChoices as model}
                     <option value={model}></option>
                   {/each}
                 </datalist>
 
                 <div class="model-suggestions">
-                  <span>Suggested models</span>
-                  {#each [...new Set([...models, ...preset.models])].slice(0, 8) as model}
+                  <span>
+                    {modelsDetected
+                      ? `Detected models (${modelChoices.length})`
+                      : 'Suggested model names'}
+                  </span>
+                  {#each modelChoices.slice(0, 10) as model}
                     <button
                       class="chip"
                       class:selected={draft.providers[selectedProvider].model === model}
@@ -269,6 +355,9 @@
                       {model}
                     </button>
                   {/each}
+                  {#if modelChoices.length > 10}
+                    <span class="more-models">+{modelChoices.length - 10} more</span>
+                  {/if}
                 </div>
 
                 {#if testMessage}
@@ -381,7 +470,7 @@
             <div class="about-grid">
               <div><span>Version</span><strong>{status?.version ?? '0.1.0'}</strong></div>
               <div><span>MCP</span><strong>bfish-mcp</strong></div>
-              <div><span>Providers</span><strong>6</strong></div>
+              <div><span>Providers</span><strong>{presets.length}</strong></div>
               <div><span>Tools</span><strong>23</strong></div>
             </div>
             <p class="about-text">
@@ -879,6 +968,12 @@
   .model-suggestions button {
     font-family: var(--mono);
     font-size: 9px;
+  }
+
+  .more-models {
+    align-self: center;
+    font-size: 9px;
+    color: var(--muted);
   }
 
   .split {

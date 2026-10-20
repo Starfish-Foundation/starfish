@@ -74,7 +74,7 @@ replayed; retry the request.
 
 ## Provider errors
 
-Use **Settings → Providers → Test**.
+Use **Settings → Providers → Detect**.
 
 | Error | Likely cause |
 | --- | --- |

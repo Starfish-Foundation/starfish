@@ -83,6 +83,16 @@ pub fn provider_presets() -> Vec<ProviderPreset> {
             note: "Google AI Studio keys. Streaming function calls supported.",
         },
         ProviderPreset {
+            id: "deepseek",
+            label: "DeepSeek",
+            default_base_url: "https://api.deepseek.com/v1",
+            default_model: "deepseek-chat",
+            key_url: "https://platform.deepseek.com/api_keys",
+            requires_key: true,
+            models: &["deepseek-chat", "deepseek-reasoner"],
+            note: "Official DeepSeek API. Use deepseek-chat for tools; deepseek-reasoner streams separate reasoning.",
+        },
+        ProviderPreset {
             id: "xai",
             label: "xAI",
             default_base_url: "https://api.x.ai/v1",

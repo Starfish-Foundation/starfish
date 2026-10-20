@@ -7,9 +7,9 @@ mod tests {
     }
 
     #[test]
-    fn defaults_include_all_six_providers() {
+    fn defaults_include_all_seven_providers() {
         let settings = Settings::default();
-        assert_eq!(settings.providers.len(), 6);
+        assert_eq!(settings.providers.len(), 7);
         for preset in provider_presets() {
             assert!(
                 settings.providers.contains_key(preset.id),
@@ -56,7 +56,7 @@ mod tests {
         .unwrap();
         let store = SettingsStore::new(&dir);
         let settings = store.load();
-        assert_eq!(settings.providers.len(), 6);
+        assert_eq!(settings.providers.len(), 7);
         assert_eq!(settings.provider, "gemini");
         assert!(!settings.model.is_empty());
         assert_eq!(settings.mcp_port, DEFAULT_MCP_PORT);
@@ -70,5 +70,15 @@ mod tests {
             assert!(preset.default_base_url.starts_with("http"));
             assert!(!preset.models.is_empty());
         }
+    }
+
+    #[test]
+    fn deepseek_is_openai_compatible() {
+        let deepseek = preset("deepseek").expect("deepseek preset");
+        assert_eq!(deepseek.label, "DeepSeek");
+        assert_eq!(deepseek.default_base_url, "https://api.deepseek.com/v1");
+        assert_eq!(deepseek.default_model, "deepseek-chat");
+        assert!(deepseek.models.contains(&"deepseek-reasoner"));
+        assert!(crate::provider::is_openai_compatible("deepseek"));
     }
 }

@@ -34,16 +34,21 @@
   let controller: AbortController | null = null;
   let stopping = false;
   let pollTimer: number | undefined;
+  let detectedModels = $state<Record<string, string[]>>({});
+  let detectingModels = $state(false);
 
   const currentPreset = $derived(
     presets.find((item) => item.id === (active?.provider ?? settings?.provider)) ?? null,
   );
+  const activeProvider = $derived(active?.provider ?? settings?.provider ?? 'openai');
   const studioConnected = $derived(status?.studio?.connected ?? false);
   const placeName = $derived(status?.studio?.sessions?.[0]?.placeName ?? 'No place');
   const modelLabel = $derived(
     `${currentPreset?.label ?? active?.provider ?? 'Model'} · ${active?.model ?? settings?.model ?? ''}`,
   );
-  const availableModels = $derived(currentPreset?.models ?? []);
+  const availableModels = $derived(
+    detectedModels[activeProvider] ?? currentPreset?.models ?? [],
+  );
 
   function uid(): string {
     return typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -63,6 +68,109 @@
       return JSON.parse(raw);
     } catch {
       return raw;
+    }
+  }
+
+  function isChatModelName(model: string): boolean {
+    const name = model.toLowerCase();
+    return ![
+      'embedding',
+      'embed-',
+      'tts',
+      'whisper',
+      'dall-e',
+      'moderation',
+      'audio',
+      'transcribe',
+      'rerank',
+      'realtime',
+      'image',
+    ].some((part) => name.includes(part));
+  }
+
+  /** Prefer a known-good family, then the first chat-like model the API returned. */
+  function pickAvailableModel(models: string[], preset: ProviderPreset | null): string {
+    const curated = preset?.models.find((model) => models.includes(model));
+    if (curated) return curated;
+    const chatModels = models.filter(isChatModelName);
+    return chatModels[0] ?? models[0];
+  }
+
+  async function fetchModels(provider: string): Promise<string[]> {
+    const preset = presets.find((item) => item.id === provider);
+    const config = settings?.providers[provider];
+    if (!preset || !config) throw new Error('Provider is not configured.');
+    if (preset.requiresKey && !config.apiKey.trim()) {
+      throw new Error(`Add a ${preset.label} API key to detect models.`);
+    }
+    const result = await api.getProviderModels(provider);
+    return result.models;
+  }
+
+  /**
+   * Fetch the provider's live model list. If the currently selected model is not
+   * actually available, move the session (and saved default) to one that is.
+   */
+  async function syncModels(
+    provider: string,
+    sessionId?: string,
+    force = false,
+    notify = false,
+  ): Promise<string[] | null> {
+    const preset = presets.find((item) => item.id === provider);
+    const config = settings?.providers[provider];
+    if (!preset || !config) return null;
+    if (!force && detectedModels[provider]?.length) return detectedModels[provider];
+    if (preset.requiresKey && !config.apiKey.trim()) {
+      if (notify) showToast(`Add a ${preset.label} API key to detect models.`);
+      return null;
+    }
+
+    detectingModels = true;
+    try {
+      const models = await fetchModels(provider);
+      if (models.length === 0) {
+        if (notify) showToast(`${preset.label} returned no models.`);
+        return null;
+      }
+      detectedModels = { ...detectedModels, [provider]: models };
+
+      const currentSession = sessionId && active?.id === sessionId ? active : null;
+      const currentModel =
+        currentSession?.model ??
+        (settings?.provider === provider ? settings?.model : settings?.providers[provider]?.model);
+
+      if (currentModel && !models.includes(currentModel)) {
+        const next = pickAvailableModel(models, preset);
+        if (currentSession) {
+          const result = await api.patchSession(currentSession.id, { model: next });
+          active = { ...currentSession, model: result.session.model };
+        }
+        if (settings) {
+          const existing = settings.providers[provider] ?? {
+            apiKey: '',
+            baseUrl: '',
+            model: next,
+          };
+          settings.providers[provider] = { ...existing, model: next };
+          if (settings.provider === provider) settings.model = next;
+          await api.updateSettings(settings);
+        }
+        if (notify) {
+          showToast(
+            `Detected ${models.length} ${preset.label} models — switched to ${next}.`,
+          );
+        }
+      } else if (notify) {
+        showToast(`Detected ${models.length} ${preset.label} models.`);
+      }
+
+      return models;
+    } catch (error) {
+      if (notify) showToast(api.errorMessage(error));
+      return null;
+    } finally {
+      detectingModels = false;
     }
   }
 
@@ -190,6 +298,7 @@
       active = result.session;
       messages = toUi(result.session.messages);
       sidebarOpen = false;
+      void syncModels(result.session.provider, result.session.id);
     } catch (error) {
       showToast(api.errorMessage(error));
     }
@@ -205,6 +314,7 @@
       messages = [];
       sessions = [summaryOf(result.session), ...sessions];
       sidebarOpen = false;
+      void syncModels(provider, result.session.id);
     } catch (error) {
       showToast(api.errorMessage(error));
     }
@@ -334,17 +444,47 @@
   async function setProvider(provider: string) {
     const preset = presets.find((item) => item.id === provider);
     if (!preset || !settings) return;
-    const model = settings.providers[provider]?.model || preset.defaultModel;
+
+    let models = detectedModels[provider];
+    if (!models) {
+      detectingModels = true;
+      try {
+        models = await fetchModels(provider);
+        detectedModels = { ...detectedModels, [provider]: models };
+      } catch (error) {
+        if (settings.providers[provider]?.apiKey) showToast(api.errorMessage(error));
+      } finally {
+        detectingModels = false;
+      }
+    }
+
+    const preferred = settings.providers[provider]?.model || preset.defaultModel;
+    const model =
+      models && models.length > 0
+        ? models.includes(preferred)
+          ? preferred
+          : pickAvailableModel(models, preset)
+        : preferred;
+
     try {
       if (active) {
         const result = await api.patchSession(active.id, { provider, model });
         active.provider = result.session.provider;
         active.model = result.session.model;
       }
+      const existing = settings.providers[provider] ?? {
+        apiKey: '',
+        baseUrl: preset.defaultBaseUrl,
+        model,
+      };
+      settings.providers[provider] = { ...existing, model };
       settings.provider = provider as SettingsType['provider'];
       settings.model = model;
       await api.updateSettings(settings);
       await refreshSessions();
+      if (models?.length) {
+        showToast(`Detected ${models.length} ${preset.label} models — using ${model}.`);
+      }
     } catch (error) {
       showToast(api.errorMessage(error));
     }
@@ -352,11 +492,19 @@
 
   async function setModel(model: string) {
     if (!active || !model.trim()) return;
+    const next = model.trim();
     try {
-      const result = await api.patchSession(active.id, { model: model.trim() });
+      const result = await api.patchSession(active.id, { model: next });
       active.model = result.session.model;
       if (settings) {
-        settings.model = result.session.model;
+        const provider = result.session.provider;
+        const existing = settings.providers[provider] ?? {
+          apiKey: '',
+          baseUrl: '',
+          model: next,
+        };
+        settings.providers[provider] = { ...existing, model: next };
+        settings.model = next;
         await api.updateSettings(settings);
       }
     } catch (error) {
@@ -364,9 +512,28 @@
     }
   }
 
+  async function refreshModels() {
+    await syncModels(activeProvider, active?.id, true, true);
+  }
+
   async function saveSettings(next: SettingsType) {
     const result = await api.updateSettings(next);
     settings = result.settings;
+
+    const provider = result.settings.provider;
+    detectedModels = {};
+
+    const preset = presets.find((item) => item.id === provider);
+    const config = result.settings.providers[provider];
+    const canDetect = Boolean(config && (!preset?.requiresKey || config.apiKey.trim()));
+    if (canDetect) {
+      void syncModels(
+        provider,
+        active?.provider === provider ? active.id : undefined,
+        true,
+        true,
+      );
+    }
     showToast('Settings saved');
   }
 
@@ -439,9 +606,19 @@
             value={active?.model ?? settings?.model}
             list="top-models"
             spellcheck="false"
-            title="Model"
+            title={detectingModels ? 'Detecting models…' : 'Model'}
             onchange={(event) => setModel(event.currentTarget.value)}
           />
+          <button
+            class="model-refresh"
+            title="Detect available models from the provider"
+            onclick={refreshModels}
+            disabled={detectingModels}
+          >
+            <svg class:spin={detectingModels} viewBox="0 0 24 24">
+              <path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" />
+            </svg>
+          </button>
           <datalist id="top-models">
             {#each availableModels as model}
               <option value={model}></option>

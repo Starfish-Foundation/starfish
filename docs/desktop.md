@@ -24,7 +24,7 @@ except model API calls stays on your machine.
    cd crates/bfish-app
    cargo tauri dev
    ```
-3. Open **Settings → Providers**, pick a vendor, paste a key, and press **Test**.
+3. Open **Settings → Providers**, pick a vendor, paste a key, and press **Detect**.
 4. Open **Settings → Studio** and install the connector.
 5. Restart Roblox Studio and open **BFish Connector** from the Plugins tab.
 
@@ -46,20 +46,27 @@ session for rename and delete actions.
 
 ### Providers
 
-Six vendors are built in:
+Seven vendors are built in:
 
 | Vendor | Default base URL | Default model |
 | --- | --- | --- |
 | OpenAI | `https://api.openai.com/v1` | `gpt-4.1` |
 | Claude | `https://api.anthropic.com/v1` | `claude-sonnet-4-5` |
 | Gemini | `https://generativelanguage.googleapis.com/v1beta` | `gemini-2.5-pro` |
+| DeepSeek | `https://api.deepseek.com/v1` | `deepseek-chat` |
 | xAI | `https://api.x.ai/v1` | `grok-4` |
 | OpenRouter | `https://openrouter.ai/api/v1` | `anthropic/claude-sonnet-4.5` |
 | Ollama | `http://127.0.0.1:11434/v1` | `qwen3:8b` |
 
-Base URLs and model names are editable. **Test** calls the provider's model-list
-endpoint; **Refresh models** in the top bar is not needed because the picker uses
-the model lists returned by the test.
+Base URLs and model names are editable. **Detect** asks the provider for the model
+list your key can actually use. BFish also does this automatically when a chat
+opens and when you switch providers; if the saved model is not in the returned
+list, it selects an available chat model instead. Without a key, the model names
+shown are only suggestions.
+
+The top-bar refresh button repeats detection and refreshes the datalist. Provider
+model-list failures leave the current model untouched and show the API error in
+the settings panel.
 
 Keys are saved in `settings.json` in the BFish config folder. They are not encrypted.
 See [SECURITY.md](../SECURITY.md).

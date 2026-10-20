@@ -1,6 +1,6 @@
 # Providers
 
-BFish normalizes six vendors into one internal chat format. Tool calls, tool
+BFish normalizes seven vendors into one internal chat format. Tool calls, tool
 results, and streaming text work across all of them.
 
 ## Quick comparison
@@ -10,6 +10,7 @@ results, and streaming text work across all of them.
 | OpenAI | Chat Completions | SSE | native | yes |
 | Claude | Messages | SSE | native | yes |
 | Gemini | `streamGenerateContent` | SSE | native | yes |
+| DeepSeek | OpenAI-compatible | SSE | native | yes |
 | xAI | OpenAI-compatible | SSE | native | yes |
 | OpenRouter | OpenAI-compatible | SSE | depends on model | yes |
 | Ollama | OpenAI-compatible `/v1` | SSE | depends on model | no |
@@ -43,6 +44,16 @@ results, and streaming text work across all of them.
   tool results back by function name.
 - Thought parts (`"thought": true`) are not shown in the chat.
 
+## DeepSeek
+
+- Base URL: `https://api.deepseek.com/v1`
+- Default model: `deepseek-chat`
+- Key: <https://platform.deepseek.com/api_keys>
+- Uses DeepSeek's OpenAI-compatible endpoint with native tool calls.
+- `deepseek-reasoner` streams its chain of thought separately; BFish hides those
+  reasoning deltas and shows only the final answer. For tool-heavy Studio work,
+  `deepseek-chat` is the safer default.
+
 ## xAI
 
 - Base URL: `https://api.x.ai/v1`
@@ -71,6 +82,27 @@ results, and streaming text work across all of them.
 - Local models are more likely to ignore tool instructions. BFish's explicit tool
   descriptions and `studio_status` guidance mitigate this, but a 7–8B model is not a
   frontier model. Prefer a tool-capable model and keep requests concrete.
+
+## Live model detection
+
+BFish does not trust the curated model names as the source of truth. When a chat
+opens, when you switch providers, and when you press **Detect** or the refresh
+button, it calls the provider's model-list endpoint:
+
+| Provider | Detection endpoint |
+| --- | --- |
+| OpenAI / DeepSeek / xAI / OpenRouter / Ollama | `GET {base_url}/models` |
+| Claude | `GET https://api.anthropic.com/v1/models` |
+| Gemini | `GET https://generativelanguage.googleapis.com/v1beta/models` |
+
+If the saved model is not in the returned list, BFish picks a known-good model
+from the provider's curated list, otherwise the first chat-like model, and updates
+the session and saved default. Non-chat endpoints such as embeddings, TTS, image,
+and moderation models are ignored when choosing a fallback.
+
+Without a key (except Ollama), detection is skipped and the curated names are shown
+as suggestions only. Press **Detect** after adding a key to replace them with the
+live list.
 
 ## How a request flows
 

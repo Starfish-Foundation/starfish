@@ -126,7 +126,7 @@
         <li>Install and open BFish.</li>
         <li>Open <strong>Settings → Studio → Install / update connector</strong>.</li>
         <li>Restart Roblox Studio and open <strong>BFish Connector</strong> from the Plugins tab.</li>
-        <li>Add a provider key in <strong>Settings → Providers</strong>, then start a chat.</li>
+        <li>Add a provider key in <strong>Settings → Providers</strong>; BFish detects the models your key can use.</li>
       </ol>
       <p>
         The app starts the backend on <code>127.0.0.1:8765</code> and the Studio bridge/MCP endpoint on
@@ -276,7 +276,7 @@ bfish-mcp --stdio</code></pre></div>
       </p>
       <h3>Provider errors</h3>
       <p>
-        Use <strong>Settings → Providers → Test</strong> to list models. A 401 means the key is wrong;
+        Use <strong>Settings → Providers → Detect</strong> to list models. A 401 means the key is wrong;
         a 404 usually means the base URL or model name is wrong.
       </p>
       <h3>Playtest does not stop</h3>

@@ -19,11 +19,12 @@ pub async fn stream(
     let url = format!("{base}/chat/completions");
     let label = provider_label(kind);
 
-    let reasoning_model = kind == "openai"
+    let reasoning_model = (kind == "openai"
         && (req.model.starts_with("o1")
             || req.model.starts_with("o3")
             || req.model.starts_with("o4")
-            || req.model.starts_with("gpt-5"));
+            || req.model.starts_with("gpt-5")))
+        || (kind == "deepseek" && req.model.starts_with("deepseek-reasoner"));
 
     let mut body = json!({
         "model": req.model,

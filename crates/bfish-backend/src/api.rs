@@ -187,7 +187,13 @@ async fn provider_models(
     let models = provider::list_models(&query.provider, &cfg)
         .await
         .map_err(|error| bad(format!("{error:#}")))?;
-    Ok(Json(json!({ "ok": true, "models": models })))
+    let count = models.len();
+    Ok(Json(json!({
+        "ok": true,
+        "models": models,
+        "count": count,
+        "source": "provider"
+    })))
 }
 
 #[derive(Debug, Deserialize)]
@@ -225,7 +231,13 @@ async fn test_provider(
     let models = provider::list_models(&body.provider, &cfg)
         .await
         .map_err(|error| bad(format!("{error:#}")))?;
-    Ok(Json(json!({ "ok": true, "models": models })))
+    let count = models.len();
+    Ok(Json(json!({
+        "ok": true,
+        "models": models,
+        "count": count,
+        "source": "provider"
+    })))
 }
 
 async fn list_sessions(State(state): State<Arc<AppState>>) -> Json<Value> {
