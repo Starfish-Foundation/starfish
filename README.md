@@ -1,193 +1,179 @@
-# Roblox Studio MCP
+# BFish
 
-Connect your coding agent directly to Roblox Studio. It can edit places, run Luau
-in live server and client contexts, start and stop playtests, and collect logs,
-screenshots, memory reports, and profiler captures from each peer.
+**AI in Roblox Studio.** A local-first desktop AI engineer with a ChatGPT-style
+workspace, six model providers, and a Rust MCP server that can inspect and edit a
+live place.
 
-[![NPM Version](https://img.shields.io/npm/v/@chrrxs/robloxstudio-mcp)](https://www.npmjs.com/package/@chrrxs/robloxstudio-mcp)
+BFish is an independent open-source project. It is not affiliated with Roblox
+Corporation.
 
-## What it can do
-
-### Debug a running game
-
-- Run Luau with `eval_server_runtime` or `eval_client_runtime`. Both tools execute in a live server or client context and use the same `require` cache as your game scripts.
-- Instrument live code with `breakpoints`. It records each hit without pausing the playtest.
-- Read output from edit mode, the server, or a specific client with `get_runtime_logs`, including messages logged during startup.
-
-### Automate playtests
-
-- Start, inspect, and stop solo or multi-client sessions with `solo_playtest` and `multiplayer_playtest`.
-- Open or close Studio windows with `manage_instance`. It can launch a baseplate, a local place file, a published place, or an older place revision.
-
-### Find performance problems
-
-- Record server or client CPU timings with `capture_script_profiler` and `capture_micro_profiler`.
-- Break down memory use with `get_memory_breakdown` or attribute scene cost with `get_scene_analysis`.
-
-### Work in edit mode
-
-- Run Luau in Studio's edit context with `execute_luau`.
-- Use `set_properties` for instance properties and `find_and_replace_in_scripts` for script text. For project-specific bulk edits, use `execute_luau`.
-- For large generated Luau, use the [verified chunk-staging workflow](docs/large-inputs.md): explicit instance routing, UTF-8 byte/hash readback, ownership-checked cleanup, and bounded recovery without blindly replaying mutations.
-- Use `selection` to inspect or update Studio selection and frame a part or model before capturing the viewport.
-- Capture the viewport with `capture_screenshot`, then send mouse or keyboard input. See [Configuration](docs/configuration.md#host-window-capture).
-
-### Inspect Creator Store assets
-
-- Find public assets with `search_assets`, then read the full catalog metadata with `get_asset_details`.
-- Check an asset's hierarchy, media metadata, and security scan with `preview_asset` before adding it to the place.
-- Add an asset with `insert_asset`. The tool removes scripts and package links, verifies the cleaned result, and then parents it in Studio.
-
-### Manage monetization
-
-- List, create, and update developer products and game passes with `manage_monetization`. New items stay off sale unless you ask, and a name that already exists is refused because Roblox cannot delete these items. Requires an Open Cloud API key; see [Configuration](docs/configuration.md#environment-variables).
-
-### Look up Roblox APIs
-
-- Fetch official engine API documentation as Markdown with `get_roblox_docs`.
-- List and retrieve Roblox-authored skills with `get_roblox_skills`.
-
-See the [complete tool list](packages/core/src/tools/definitions.ts).
-
-## Setup
-
-### 1. Connect your client
-
-Choose your MCP client below. Each setup installs the matching Studio plugin automatically.
-
-<details>
-<summary>Codex CLI</summary>
-
-```bash
-codex mcp add robloxstudio -- npx -y @chrrxs/robloxstudio-mcp@latest --auto-install-plugin
+```
+┌──────────────────────────── BFish desktop app (Tauri) ────────────────────────────┐
+│  Svelte chat UI  ── HTTP + SSE ──▶  bfish-backend  ──▶  provider APIs             │
+│                                      │                                            │
+│                                      ├── sessions, prompts, keys (local JSON)      │
+│                                      └── bfish-mcp engine                         │
+│                                              │                                    │
+│                                     Studio bridge :34871                          │
+└──────────────────────────────────────────────┼────────────────────────────────────┘
+                                               │ localhost long-poll
+                                    BFish Connector (Roblox plugin)
+                                               │
+                                        Roblox Studio
 ```
 
-</details>
+## What is in this repo
 
-<details>
-<summary>Claude Code</summary>
-
-```bash
-claude mcp add robloxstudio -- npx -y @chrrxs/robloxstudio-mcp@latest --auto-install-plugin
-```
-
-</details>
-
-<details>
-<summary>Antigravity CLI</summary>
-
-```bash
-agy mcp add robloxstudio -- npx -y @chrrxs/robloxstudio-mcp@latest --auto-install-plugin
-```
-
-</details>
-
-<details>
-<summary>Other clients (Cursor, Claude Desktop, etc..)</summary>
-
-```json
-{
-  "mcpServers": {
-    "robloxstudio-mcp": {
-      "command": "npx",
-      "args": ["-y", "@chrrxs/robloxstudio-mcp@latest", "--auto-install-plugin"]
-    }
-  }
-}
-```
-
-</details>
-
-### 2. Restart Studio
-
-Fully close and reopen Studio after installation or updates.
-When the plugin displays **Connected**, you're ready.
-
-<details>
-<summary>Advanced setup</summary>
-
-**Custom Plugins folder.** Set `MCP_PLUGINS_DIR` to use a custom location.
-
-**Manual plugin installation.**
-
-```bash
-npx -y @chrrxs/robloxstudio-mcp@latest --install-plugin
-```
-
-Both editions prefer the bundled plugin. If it is missing, installation downloads
-the GitHub release matching the installed npm package version and validates the
-plugin's version and edition before replacing the installed file. This also
-applies to development versions; a missing matching release is an error.
-
-</details>
-
-<details>
-<summary>Native Linux (Wine)</summary>
-
-On native Linux, Studio runs under Wine. To let the server launch and close it,
-set `ROBLOX_STUDIO_WINE_LAUNCHER` to an executable script and `ROBLOX_STUDIO_EXE`
-to `RobloxStudioBeta.exe` inside your Wine prefix. The server runs
-`<launcher> <RobloxStudioBeta.exe path> <Studio arguments...>`; the launcher sets
-up the prefix and display, then must `exec wine "$@"` so Studio keeps its PID.
-See [Native Linux with Wine](docs/configuration.md#native-linux-with-wine).
-
-</details>
-
-## Inspector edition
-
-Read-only access to the DataModel.
-
-[![NPM Version](https://img.shields.io/npm/v/@chrrxs/robloxstudio-mcp-inspector)](https://www.npmjs.com/package/@chrrxs/robloxstudio-mcp-inspector)
-
-<details>
-<summary>Installation and permissions</summary>
-
-No DataModel or script edits. The selection tool can change editor selection and
-camera framing; export and profiler tools can write files only to explicit local
-paths.
-
-Install only one variant at a time (the installers remove the other automatically):
-
-**Codex CLI**
-
-```bash
-codex mcp add robloxstudio-inspector -- npx -y @chrrxs/robloxstudio-mcp-inspector@latest --auto-install-plugin
-```
-
-**Claude Code**
-
-```bash
-claude mcp add robloxstudio-inspector -- npx -y @chrrxs/robloxstudio-mcp-inspector@latest --auto-install-plugin
-```
-
-**Antigravity CLI**
-
-```bash
-agy mcp add robloxstudio-inspector -- npx -y @chrrxs/robloxstudio-mcp-inspector@latest --auto-install-plugin
-```
-
-**Other clients (Cursor, Claude Desktop, etc.)**
-
-```json
-{
-  "mcpServers": {
-    "robloxstudio-inspector": {
-      "command": "npx",
-      "args": ["-y", "@chrrxs/robloxstudio-mcp-inspector@latest", "--auto-install-plugin"]
-    }
-  }
-}
-```
-
-</details>
-
-## Documentation
-
-| Topic | Guides |
+| Path | What it is |
 | --- | --- |
-| **Setup & usage** | [Configuration and HTTP bridge](docs/configuration.md) · [Large inputs & recovery](docs/large-inputs.md) · [Creator Store assets](docs/creator-store-assets.md) |
-| **Development** | [Building from source](docs/building-from-source.md) · [API migration](docs/deprecated-api.md) · [Token budgets](docs/token-efficiency.md) |
+| `crates/bfish-core` | Provider adapters (OpenAI, Claude, Gemini, xAI, OpenRouter, Ollama), prompts, session storage |
+| `crates/bfish-mcp` | Rust MCP server, Studio bridge, 23 tools, connector installer |
+| `crates/bfish-backend` | Local API on `127.0.0.1:8765`, agent loop, SSE streaming |
+| `crates/bfish-app` | Tauri v2 desktop shell |
+| `app/` | Svelte 5 + Vite desktop UI |
+| `plugin/` | Connector-only Roblox Studio plugin + `.rbxmx` builder |
+| `website/` | Svelte + Vite landing page and docs |
+| `docs/` | MCP, desktop, plugin, provider, architecture, and build docs |
 
----
+## Features
 
-[Report issues](https://github.com/chrrxs/robloxstudio-mcp/issues) · [Report a security vulnerability](SECURITY.md) · MIT Licensed · Based on [boshyxd/robloxstudio-mcp](https://github.com/boshyxd/robloxstudio-mcp) v2.7.0
+![BFish desktop app](assets/app.png)
+
+- **Six providers, one picker** — OpenAI, Claude, Gemini, xAI, OpenRouter, and Ollama.
+- **Real Studio tools** — explorer reads, Luau execution, scripts, instances, assets,
+  selections, playtests, console output, undo/redo.
+- **Sessions** — saved local chats, rename/delete, auto titles, streaming responses.
+- **Tool cards** — see every tool call, its arguments, and its result.
+- **Connector-only plugin** — shows status and relays calls; no chat or keys in Studio.
+- **Vendor-neutral MCP** — explicit schemas, structured errors, read-only/destructive hints.
+- **Local-first** — keys and sessions never leave your machine except to your provider.
+- **Undo-friendly** — mutations run inside Studio undo recordings.
+
+## Quickstart
+
+### Requirements
+
+- Node.js 20+ and Rust 1.85+ for building
+- Roblox Studio
+- At least one provider key, or [Ollama](https://ollama.com) for local models
+
+### Run the desktop app
+
+The release executable bundles the UI and starts its own backend:
+
+```powershell
+scripts\run.ps1
+# or after building:
+target\release\bfish-app.exe
+```
+
+For desktop development:
+
+```bash
+cargo install tauri-cli --version "^2"
+cd crates/bfish-app
+cargo tauri dev
+```
+
+`cargo tauri dev` starts Vite and the backend automatically; don't run the backend
+separately at the same time. `scripts\run.ps1` builds the standalone release
+binary with the `custom-protocol` feature enabled.
+
+### Browser development
+
+```bash
+cargo run -p bfish-backend
+npm --prefix app run dev
+# http://localhost:5173
+```
+
+### Connect Studio
+
+```bash
+cargo run -p bfish-mcp -- --install-plugin
+```
+
+Restart Studio, then open **BFish Connector** from the Plugins tab.
+
+In the app: **Settings → Providers** add a key, then **Settings → Studio** confirms
+the connection.
+
+## bfish-mcp
+
+The MCP server is a Rust fork of
+[robloxstudio-mcp](https://github.com/Chrrxs/robloxstudio-mcp). It preserves the
+upstream repository as the `upstream` git remote.
+
+```bash
+cargo install --path crates/bfish-mcp --locked
+bfish-mcp --install-plugin
+bfish-mcp --stdio          # MCP over stdio
+bfish-mcp --http           # http://127.0.0.1:34871/mcp
+```
+
+Claude Desktop / Cursor / Cline config:
+
+```json
+{
+  "mcpServers": {
+    "bfish": {
+      "command": "bfish-mcp",
+      "args": ["--stdio"]
+    }
+  }
+}
+```
+
+See [docs/mcp.md](docs/mcp.md) for the full tool reference and
+[docs/architecture.md](docs/architecture.md) for internals.
+
+## Development
+
+```bash
+cargo check -p bfish-core -p bfish-mcp -p bfish-backend
+cargo test -p bfish-core -p bfish-mcp -p bfish-backend
+node plugin/build.mjs
+npm --prefix app run build
+npm --prefix website run build
+```
+
+Useful scripts:
+
+- `scripts/dev.ps1` — backend + Vite in two terminals
+- `scripts/build.ps1` — release binaries, connector, UI, website
+- `scripts/install-plugin.ps1` — install/update the Studio connector
+
+## Configuration
+
+| Variable | Purpose |
+| --- | --- |
+| `BFISH_HOME` | Override settings/session directory |
+| `BFISH_PORT` | Backend port (default `8765`) |
+| `BFISH_PLUGINS_DIR` | Override Roblox Plugins folder |
+| `RUST_LOG` | Logging filter |
+
+Default data locations:
+
+- Windows: `%APPDATA%\BFish`
+- macOS: `~/Library/Application Support/BFish`
+- Linux: `~/.config/BFish`
+
+Keys are stored unencrypted in `settings.json`. BFish is a local developer tool;
+protect your user account accordingly. See [SECURITY.md](SECURITY.md).
+
+## Current limitations (v0.1)
+
+- No viewport screenshots, mouse/keyboard injection, or profiler capture yet.
+- Playtest control depends on `StudioTestService` behavior in your Studio version.
+- The connector owns one Studio window at a time; the bridge keeps up to four recent sessions.
+- Only one process can own port `34871`.
+- Tauri bundling is disabled by default; use `cargo tauri build` after configuring icons.
+
+## Credits
+
+- Protocol design and original tool surface:
+  [Chrrxs/robloxstudio-mcp](https://github.com/Chrrxs/robloxstudio-mcp) (MIT).
+- Built with [Tauri](https://tauri.app), [Svelte](https://svelte.dev),
+  [Axum](https://github.com/tokio-rs/axum), and [Rojo](https://rojo.space) conventions.
+
+Licensed under the MIT License. See [LICENSE](LICENSE).

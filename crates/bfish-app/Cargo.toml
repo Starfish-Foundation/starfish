@@ -1,0 +1,19 @@
+[package]
+name = "bfish-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = []
+# Enables production assets (app/dist) instead of the dev URL. The Tauri CLI
+# enables this for `cargo tauri build`; pass it explicitly for plain cargo builds.
+custom-protocol = ["tauri/custom-protocol"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+bfish-backend = { path = "../bfish-backend" }
+tauri = { version = "2", features = [] }
+tokio.workspace = true

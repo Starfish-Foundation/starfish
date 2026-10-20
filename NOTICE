@@ -1,0 +1,14 @@
+BFish
+Copyright (c) 2026 BFish contributors
+
+This product includes software derived from robloxstudio-mcp
+(https://github.com/Chrrxs/robloxstudio-mcp), Copyright (c) 2025,
+licensed under the MIT License. The original repository is preserved as the
+`upstream` git remote.
+
+BFish is an independent project and is not affiliated with, endorsed by, or
+sponsored by Roblox Corporation. Roblox and Roblox Studio are trademarks of
+Roblox Corporation.
+
+Third-party dependencies retain their own licenses. See Cargo.lock and the npm
+lockfiles for the exact versions.

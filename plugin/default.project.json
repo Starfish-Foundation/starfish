@@ -1,0 +1,7 @@
+{
+  "name": "BFishConnector",
+  "tree": {
+    "$className": "Script",
+    "$path": "src"
+  }
+}
