@@ -14,15 +14,23 @@ The UI talks to `http://127.0.0.1:8765`.
 
 ## “Port 34871 is already in use”
 
-Only one process can own the Studio bridge. The desktop app and a standalone
-`bfish-mcp` cannot both use the default port.
+Only one process can own the Studio bridge. BFish now handles the common case
+automatically:
 
-- Close the other process, or
-- run the standalone server on a different port:
-  ```bash
-  bfish-mcp --stdio --port 34872
-  ```
-  and set the connector URL to `http://127.0.0.1:34872`.
+- If the app (or a stdio `bfish-mcp`) finds port `34871` already owned by another
+  BFish server, it probes `/health` and reuses that bridge as a remote MCP endpoint.
+  Both clients then drive the same Studio session.
+- If the port is owned by something that is not BFish, startup reports the bind
+  error.
+- `bfish-mcp --http` must own the port because it serves the HTTP transport itself.
+
+You can still choose a dedicated port:
+
+```bash
+bfish-mcp --stdio --port 34872
+```
+
+and set the connector URL to `http://127.0.0.1:34872`.
 
 ## Studio says “Not connected”
 

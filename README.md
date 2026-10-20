@@ -167,7 +167,7 @@ protect your user account accordingly. See [SECURITY.md](SECURITY.md).
 - No viewport screenshots, mouse/keyboard injection, or profiler capture yet.
 - Playtest control depends on `StudioTestService` behavior in your Studio version.
 - The connector owns one Studio window at a time; the bridge keeps up to four recent sessions.
-- Only one process can own port `34871`.
+- Only one process owns port `34871`; other BFish processes reuse that bridge over loopback.
 - Tauri bundling is disabled by default; use `cargo tauri build` after configuring icons.
 
 ## Credits

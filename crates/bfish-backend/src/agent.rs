@@ -100,7 +100,7 @@ async fn run_session(
 
     let mut system = settings.system_prompt.clone();
     system.push_str("\n\n# Live Studio context\n");
-    match state.engine.bridge().connected_session().await {
+    match state.engine.connected_session().await {
         Some(studio) => {
             system.push_str(&format!(
                 "Studio is connected.\nPlace: {} (PlaceId: {})\nPlugin: {}\nStudio: {}\n\

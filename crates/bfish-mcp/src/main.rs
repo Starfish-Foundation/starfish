@@ -78,7 +78,7 @@ async fn main() -> Result<()> {
         }
     }
 
-    let engine = Engine::new(port);
+    let mut engine = Engine::new(port);
 
     if http {
         println!("BFish MCP listening on http://127.0.0.1:{port}/mcp (Studio bridge: /studio)");
@@ -87,13 +87,27 @@ async fn main() -> Result<()> {
     }
 
     if !no_bridge {
-        let bridge_engine = engine.clone();
-        let bridge_port = port;
-        tokio::spawn(async move {
-            if let Err(err) = bridge_engine.bridge().serve(bridge_engine.clone()).await {
-                tracing::error!("Studio bridge failed on port {bridge_port}: {err:#}");
+        match engine.bridge().bind().await {
+            Ok(listener) => {
+                let bridge = engine.bridge().clone();
+                let bridge_engine = engine.clone();
+                tokio::spawn(async move {
+                    if let Err(err) = bridge.serve_on(listener, bridge_engine).await {
+                        tracing::error!("Studio bridge stopped: {err:#}");
+                    }
+                });
             }
-        });
+            Err(err) => {
+                if bfish_mcp::existing_bridge(port).await {
+                    tracing::warn!(
+                        "Port {port} is owned by another BFish MCP server; using it as a remote bridge."
+                    );
+                    engine = Engine::remote(port);
+                } else {
+                    tracing::error!("Studio bridge failed on port {port}: {err:#}");
+                }
+            }
+        }
         tokio::time::sleep(Duration::from_millis(250)).await;
     }
 

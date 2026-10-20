@@ -3,24 +3,82 @@ use std::time::Duration;
 use anyhow::{bail, Result};
 use serde_json::{json, Value};
 
-use crate::bridge::Bridge;
+use crate::bridge::{Bridge, BridgeStatus, SessionInfo};
 use crate::tools;
 use bfish_core::ToolSpec;
 
 #[derive(Clone)]
 pub struct Engine {
     bridge: Bridge,
+    remote: Option<String>,
+    client: reqwest::Client,
 }
 
 impl Engine {
     pub fn new(port: u16) -> Self {
         Self {
             bridge: Bridge::new(port),
+            remote: None,
+            client: reqwest::Client::new(),
         }
+    }
+
+    /// Use a bfish-mcp server that already owns the bridge port.
+    pub fn remote(port: u16) -> Self {
+        Self {
+            bridge: Bridge::new(port),
+            remote: Some(format!("http://127.0.0.1:{port}")),
+            client: reqwest::Client::new(),
+        }
+    }
+
+    pub fn is_remote(&self) -> bool {
+        self.remote.is_some()
+    }
+
+    pub fn port(&self) -> u16 {
+        self.bridge.port()
     }
 
     pub fn bridge(&self) -> &Bridge {
         &self.bridge
+    }
+
+    pub async fn status(&self) -> BridgeStatus {
+        if let Some(base) = &self.remote {
+            let result = self
+                .client
+                .get(format!("{base}/studio/status"))
+                .timeout(Duration::from_secs(3))
+                .send()
+                .await;
+            if let Ok(response) = result {
+                if response.status().is_success() {
+                    if let Ok(status) = response.json::<BridgeStatus>().await {
+                        return status;
+                    }
+                }
+            }
+            return BridgeStatus {
+                connected: false,
+                port: self.port(),
+                sessions: Vec::new(),
+                calls: 0,
+                recent_logs: Vec::new(),
+            };
+        }
+        self.bridge.status().await
+    }
+
+    pub async fn connected_session(&self) -> Option<SessionInfo> {
+        let status = self.status().await;
+        if !status.connected {
+            return None;
+        }
+        status
+            .sessions
+            .into_iter()
+            .max_by_key(|session| session.last_seen)
     }
 
     pub fn tools(&self) -> Vec<ToolSpec> {
@@ -29,7 +87,7 @@ impl Engine {
 
     pub async fn call(&self, name: &str, args: &Value) -> Result<Value> {
         if name == "studio_status" {
-            let status = self.bridge.status().await;
+            let status = self.status().await;
             let mut value = json!({
                 "ok": true,
                 "data": status
@@ -193,12 +251,70 @@ impl Engine {
             other => bail!("Tool `{other}` has no Studio binding."),
         };
 
+        if let Some(base) = &self.remote {
+            let body = json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": { "name": name, "arguments": args }
+            });
+            let response = self
+                .client
+                .post(format!("{base}/mcp"))
+                .timeout(Duration::from_secs(timeout))
+                .json(&body)
+                .send()
+                .await?;
+            if !response.status().is_success() {
+                bail!(
+                    "The BFish MCP server on port {} returned HTTP {}.",
+                    self.port(),
+                    response.status()
+                );
+            }
+            let value: Value = response.json().await?;
+            if let Some(error) = value.get("error") {
+                let message = error["message"]
+                    .as_str()
+                    .map(str::to_string)
+                    .unwrap_or_else(|| error.to_string());
+                bail!("{message}");
+            }
+            let result = &value["result"];
+            let text = result["content"][0]["text"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string();
+            if result["isError"].as_bool().unwrap_or(false) {
+                bail!("{}", text.trim_start_matches("Error: "));
+            }
+            return Ok(serde_json::from_str::<Value>(&text)
+                .unwrap_or_else(|_| json!({ "ok": true, "data": text })));
+        }
+
         let result = self
             .bridge
             .call(endpoint, payload, Duration::from_secs(timeout))
             .await?;
 
         Ok(json!({ "ok": true, "data": result }))
+    }
+}
+
+pub async fn existing_bridge(port: u16) -> bool {
+    let client = reqwest::Client::new();
+    let result = client
+        .get(format!("http://127.0.0.1:{port}/health"))
+        .timeout(Duration::from_secs(2))
+        .send()
+        .await;
+    match result {
+        Ok(response) if response.status().is_success() => response
+            .json::<Value>()
+            .await
+            .map(|value| value["service"] == "bfish-mcp")
+            .unwrap_or(false),
+        _ => false,
     }
 }
 

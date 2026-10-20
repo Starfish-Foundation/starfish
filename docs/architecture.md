@@ -69,6 +69,11 @@ A tool call:
 The poll handler checks the queue every 150 ms and returns `204` after the wait
 window. This avoids notification races and keeps the plugin implementation simple.
 
+Only one process can own the port. If a second BFish process (the app or a stdio
+`bfish-mcp`) cannot bind it, it probes `/health` and switches to a remote engine
+that calls the owner's `POST /mcp`. This lets the desktop app and Claude Desktop
+share one live Studio bridge instead of both reporting “offline”.
+
 ## MCP transports
 
 `bfish_mcp::mcp::Engine::handle_json` implements JSON-RPC:

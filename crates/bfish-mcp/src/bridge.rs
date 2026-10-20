@@ -18,7 +18,7 @@ use uuid::Uuid;
 pub const DEFAULT_STUDIO_PORT: u16 = 34871;
 const SESSION_STALE_SECONDS: i64 = 30;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionInfo {
     pub id: String,
@@ -31,7 +31,7 @@ pub struct SessionInfo {
     pub last_seen: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StudioLog {
     pub at: DateTime<Utc>,
@@ -39,7 +39,7 @@ pub struct StudioLog {
     pub message: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BridgeStatus {
     pub connected: bool,

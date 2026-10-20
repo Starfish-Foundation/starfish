@@ -182,7 +182,7 @@ impl Engine {
         let uri = params["uri"].as_str().unwrap_or_default();
         match uri {
             "bfish://status" => {
-                let status = self.bridge().status().await;
+                let status = self.status().await;
                 Ok(json!({
                     "contents": [{
                         "uri": uri,

@@ -109,7 +109,7 @@ async fn index() -> Json<Value> {
 }
 
 async fn health(State(state): State<Arc<AppState>>) -> Json<Value> {
-    let status = state.engine.bridge().status().await;
+    let status = state.engine.status().await;
     Json(json!({
         "ok": true,
         "version": bfish_core::APP_VERSION,
@@ -118,7 +118,7 @@ async fn health(State(state): State<Arc<AppState>>) -> Json<Value> {
 }
 
 async fn status(State(state): State<Arc<AppState>>) -> Json<Value> {
-    let bridge = state.engine.bridge().status().await;
+    let bridge = state.engine.status().await;
     let error = state.mcp_error.read().await.clone();
     let settings = state.settings.read().await.clone();
     Json(json!({
@@ -359,14 +359,11 @@ async fn stop_chat(State(state): State<Arc<AppState>>, Json(body): Json<StopChat
 }
 
 async fn mcp_status(State(state): State<Arc<AppState>>) -> Json<Value> {
-    let status = state.engine.bridge().status().await;
+    let status = state.engine.status().await;
     let error = state.mcp_error.read().await.clone();
     let mut value = serde_json::to_value(status).unwrap_or_else(|_| json!({}));
     value["error"] = json!(error);
-    value["mcpUrl"] = json!(format!(
-        "http://127.0.0.1:{}/mcp",
-        state.engine.bridge().port()
-    ));
+    value["mcpUrl"] = json!(format!("http://127.0.0.1:{}/mcp", state.engine.port()));
     Json(value)
 }
 

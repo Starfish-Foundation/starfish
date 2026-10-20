@@ -12,6 +12,7 @@ bfish-core = { path = "../bfish-core" }
 bfish-mcp = { path = "../bfish-mcp" }
 chrono.workspace = true
 futures-util.workspace = true
+reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true

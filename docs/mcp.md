@@ -118,8 +118,8 @@ Create an anchored neon part named Beacon at (0, 8, 0) and verify it.
 ```
 
 The MCP server owns the Studio bridge on `127.0.0.1:34871`. Only one process can
-own that port: close the desktop app if you want to run the standalone server, or
-point the standalone server at another port and update the connector URL.
+own that port; a second BFish process automatically reuses the existing bridge over
+loopback, so the desktop app and a stdio MCP client can share Studio.
 
 ## Tools
 

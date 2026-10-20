@@ -5,7 +5,7 @@ pub mod mcp;
 pub mod tools;
 
 pub use bridge::{Bridge, BridgeStatus, DEFAULT_STUDIO_PORT};
-pub use engine::Engine;
+pub use engine::{existing_bridge, Engine};
 pub use install::{install_plugin, plugin_path, plugin_xml, plugins_dir};
 
 #[cfg(test)]

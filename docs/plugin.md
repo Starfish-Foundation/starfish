@@ -123,6 +123,7 @@ uses `plugin:GetSetting`/`SetSetting` to remember the server URL.
 
 - **HTTP requests are not enabled**: enable it in Game Settings → Security.
 - **Unknown session**: the backend restarted; the plugin reconnects automatically.
-- **Port in use**: close the other BFish process, or change the port in both the app
-  and the connector URL.
+- **Port in use**: if another BFish server owns it, the app and stdio server reuse
+  it automatically. Use a different port only when the port is owned by a different
+  application.
 - **Plugin does not appear**: check the exact Plugins folder, then fully restart Studio.

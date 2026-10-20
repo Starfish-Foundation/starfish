@@ -30,7 +30,8 @@ impl AppState {
     pub async fn from_store(settings_store: SettingsStore) -> Result<Arc<Self>> {
         let settings = settings_store.load();
         let sessions = SessionStore::new(settings_store.sessions_dir());
-        let engine = Engine::new(settings.mcp_port);
+        let port = settings.mcp_port;
+        let mut engine = Engine::new(port);
 
         let mcp_error = match engine.bridge().bind().await {
             Ok(listener) => {
@@ -43,7 +44,17 @@ impl AppState {
                 });
                 None
             }
-            Err(err) => Some(format!("{err:#}")),
+            Err(err) => {
+                if bfish_mcp::existing_bridge(port).await {
+                    tracing::warn!(
+                        "Port {port} is owned by an existing BFish MCP server; using it as a remote bridge."
+                    );
+                    engine = Engine::remote(port);
+                    None
+                } else {
+                    Some(format!("{err:#}"))
+                }
+            }
         };
 
         Ok(Arc::new(Self {
